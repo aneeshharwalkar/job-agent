@@ -5,13 +5,20 @@ from email.mime.multipart import MIMEMultipart
 from datetime import date
 import os
 from dotenv import load_dotenv
+from pathlib import Path
+import os
 
 load_dotenv()
 
 client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
 
-with open("resume.txt", "r") as f:
-    resume = f.read()
+resume = os.getenv("RESUME_TEXT")
+
+if not resume:
+    resume_path = Path(__file__).resolve().parent / "resume.txt"
+    if not resume_path.exists():
+        raise FileNotFoundError("resume.txt not found and RESUME_TEXT secret is missing")
+    resume = resume_path.read_text(encoding="utf-8")
 
 system_prompt = f"""
 You are a job search assistant for an entry-level candidate graduating May 2026
