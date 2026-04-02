@@ -106,3 +106,132 @@ Users can change these location preferences directly in `agent.py` to match thei
 ├── .gitignore
 ├── .env                # local only, not committed
 └── resume.txt          # local only, gitignored
+```
+
+## Setup
+
+### 1. Clone the repo
+
+~~~bash
+git clone https://github.com/your-username/job-agent.git
+cd job-agent
+~~~
+
+### 2. Create and activate a virtual environment
+
+~~~bash
+python3 -m venv venv
+source venv/bin/activate
+~~~
+
+### 3. Install dependencies
+
+~~~bash
+pip install -r requirements.txt
+~~~
+
+### 4. Create a local `.env` file
+
+Create a `.env` file in the project root with:
+
+~~~env
+ANTHROPIC_API_KEY=your_anthropic_key
+EMAIL_FROM=your_email@gmail.com
+EMAIL_TO=your_target_email@example.com
+EMAIL_PASSWORD=your_gmail_app_password
+~~~
+
+### 5. Add your local `resume.txt`
+
+Create a `resume.txt` file in the project root containing your resume text.
+
+This file is intended for local use only and should remain in `.gitignore`.
+
+### 6. Add GitHub Actions secrets
+
+In your GitHub repository, go to:
+
+**Settings → Secrets and variables → Actions**
+
+Add the following repository secrets:
+
+- `ANTHROPIC_API_KEY`
+- `EMAIL_FROM`
+- `EMAIL_TO`
+- `EMAIL_PASSWORD`
+- `RESUME_TEXT`
+
+`RESUME_TEXT` should contain the full text of your resume. This allows GitHub Actions to run without exposing `resume.txt` in the public repository.
+
+### 7. Update your workflow file
+
+Make sure your workflow passes the secrets into the environment:
+
+~~~yaml
+name: Daily Job Brief
+
+on:
+  schedule:
+    - cron: '0 14 */2 * *'
+  workflow_dispatch:
+
+jobs:
+  run-agent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run job agent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          EMAIL_FROM: ${{ secrets.EMAIL_FROM }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          EMAIL_PASSWORD: ${{ secrets.EMAIL_PASSWORD }}
+          RESUME_TEXT: ${{ secrets.RESUME_TEXT }}
+        run: python agent.py
+~~~
+
+### 8. Update `agent.py` to support both local and GitHub runs
+
+Use this logic so the script reads from `RESUME_TEXT` in GitHub Actions and falls back to local `resume.txt` on your machine:
+
+~~~python
+from pathlib import Path
+import os
+
+resume = os.getenv("RESUME_TEXT")
+
+if not resume:
+    resume_path = Path(__file__).resolve().parent / "resume.txt"
+    if not resume_path.exists():
+        raise FileNotFoundError("resume.txt not found and RESUME_TEXT secret is missing")
+    resume = resume_path.read_text(encoding="utf-8")
+~~~
+
+### 9. Run locally
+
+~~~bash
+python agent.py
+~~~
+
+If configured correctly, the script will generate a job brief and send it to your email.
+
+### 10. Customize preferences
+
+The current version of the agent is tailored to my own profile, role preferences, and locations. To adapt it for your own use, edit the search terms, preferred industries, preferred locations, scoring logic, and output preferences directly in `agent.py`.
+
+For example, you can change:
+
+- sports analytics roles to software engineering, finance, UX, or marketing roles
+- Austin and New York preferences to your own target cities
+- the entry-level filter to match your experience level
+- the scoring logic to prioritize remote roles, certain companies, or specific skills
